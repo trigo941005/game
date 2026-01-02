@@ -1,0 +1,187 @@
+import random
+
+class PlayerAccount:
+    def __init__(self, name, initial_influence=1.0, initial_activity=100, initial_bias="Neutral"):
+        self.name = name
+        self.influence = initial_influence
+        self.activity = initial_activity
+        self.bias = initial_bias
+        self.is_locked = False # 帳號是否被封鎖
+
+    def __str__(self):
+        status = "(Locked)" if self.is_locked else ""
+        return (f"帳號名稱: {self.name} {status} | 影響力: {self.influence:.2f} | "
+                f"活躍度: {self.activity} | 傾向性: {self.bias}")
+
+    def increase_influence(self, amount):
+        if not self.is_locked:
+            self.influence += amount
+            self.influence = max(0.1, self.influence) # 影響力不能為負
+            print(f"{self.name} 的影響力增加了 {amount:.2f}，目前: {self.influence:.2f}")
+
+    def decrease_influence(self, amount):
+        if not self.is_locked:
+            self.influence -= amount
+            self.influence = max(0.0, self.influence) # 影響力不能為負
+            if self.influence == 0:
+                self.is_locked = True # 影響力歸零則封鎖帳號
+                print(f"{self.name} 的影響力歸零，帳號被封鎖！")
+            print(f"{self.name} 的影響力減少了 {amount:.2f}，目前: {self.influence:.2f}")
+
+    def consume_activity(self, amount):
+        if not self.is_locked:
+            if self.activity >= amount:
+                self.activity -= amount
+                print(f"{self.name} 消耗了 {amount} 活躍度，目前: {self.activity}")
+                return True
+            else:
+                print(f"{self.name} 活躍度不足 ({self.activity}/{amount})。")
+                return False
+        else:
+            print(f"{self.name} 已被封鎖，無法執行操作。")
+            return False
+
+    def restore_activity(self, amount):
+        if not self.is_locked:
+            self.activity += amount
+            self.activity = min(100, self.activity) # 活躍度上限
+
+    def change_bias(self, new_bias):
+        if not self.is_locked:
+            self.bias = new_bias
+            print(f"{self.name} 的傾向性改變為 {self.bias}")
+
+
+class GameResourceManager:
+    def __init__(self, initial_resource_points=100):
+        self.resource_points = initial_resource_points
+        print(f"遊戲資源管理器初始化，初始資源點數: {self.resource_points}")
+
+    def gain_resource(self, amount):
+        self.resource_points += amount
+        print(f"獲得 {amount} 資源點數，目前: {self.resource_points}")
+
+    def lose_resource(self, amount):
+        if self.resource_points >= amount:
+            self.resource_points -= amount
+            print(f"消耗 {amount} 資源點數，目前: {self.resource_points}")
+            return True
+        else:
+            print(f"資源點數不足，無法消耗 {amount} (目前: {self.resource_points})。")
+            return False
+
+    def display_resources(self):
+        print(f"目前資源點數: {self.resource_points}")
+
+
+class PlayerAccountManager:
+    def __init__(self, resource_manager):
+        self.accounts = {}
+        self.resource_manager = resource_manager
+        self.account_creation_cost = 20 # 創建一個帳號的資源點數成本
+
+    def add_account(self, name, initial_influence=None, initial_activity=None, initial_bias=None):
+        if name in self.accounts:
+            print(f"帳號 '{name}' 已存在。")
+            return None
+
+        if not self.resource_manager.lose_resource(self.account_creation_cost):
+            print(f"資源點數不足，無法創建帳號 '{name}'。需要 {self.account_creation_cost} 點。")
+            return None
+
+        # 隨機產生初始屬性，符合遊戲設計中的「隨機產生一定的偏差」
+        if initial_influence is None: initial_influence = round(random.uniform(0.5, 2.0), 2)
+        if initial_activity is None: initial_activity = random.randint(50, 100)
+        if initial_bias is None: initial_bias = random.choice(["Pro-A", "Anti-B", "Neutral"])
+
+        new_account = PlayerAccount(name, initial_influence, initial_activity, initial_bias)
+        self.accounts[name] = new_account
+        print(f"新增帳號: {new_account}")
+        return new_account
+
+    def get_account(self, name):
+        return self.accounts.get(name)
+
+    def display_all_accounts(self):
+        if not self.accounts:
+            print("目前沒有任何帳號。")
+            return
+        print("\n--- 玩家帳號列表 ---")
+        for name, account in self.accounts.items():
+            print(account)
+        print("------------------")
+
+    def get_active_accounts(self):
+        return [acc for acc in self.accounts.values() if not acc.is_locked]
+
+    def get_locked_account_percentage(self):
+        total_accounts = len(self.accounts)
+        if total_accounts == 0:
+            return 0.0
+        locked_accounts = sum(1 for acc in self.accounts.values() if acc.is_locked)
+        return (locked_accounts / total_accounts) * 100
+
+    def get_total_active_influence(self):
+        return sum(acc.influence for acc in self.get_active_accounts())
+
+# --- 演示帳號管理系統 --- 
+
+# 初始化遊戲資源管理器
+game_resource_manager = GameResourceManager(initial_resource_points=100)
+
+# 初始化帳號管理系統，並傳入資源管理器
+account_manager = PlayerAccountManager(game_resource_manager)
+
+print("\n=== 初始化帳號系統 ===")
+account_manager.display_all_accounts()
+
+print("\n=== 新增帳號 (消耗資源點數) ===")
+account1 = account_manager.add_account("水軍小明", initial_influence=1.5, initial_bias="Pro-A")
+account2 = account_manager.add_account("輿論觀察員", initial_bias="Neutral") # 隨機影響力、活躍度
+account3 = account_manager.add_account("反對派老王", initial_influence=2.0, initial_activity=120, initial_bias="Anti-B")
+account4 = account_manager.add_account("匿名用戶123") # 全部隨機
+
+account_manager.display_all_accounts()
+game_resource_manager.display_resources()
+
+print("\n=== 模擬帳號操作與屬性變化 ===")
+
+# 帳號操作: 消耗活躍度
+if account1:
+    account1.consume_activity(20)
+    account1.increase_influence(0.2)
+
+# 帳號操作: 改變傾向性
+if account2:
+    account2.change_bias("Pro-A")
+    account2.consume_activity(10)
+
+# 帳號操作: 影響力下降導致封鎖
+if account3:
+    account3.decrease_influence(2.5) # 影響力歸零或更低
+    account3.consume_activity(5) # 嘗試操作已封鎖帳號
+
+account_manager.display_all_accounts()
+
+print(f"\n被封鎖帳號比例: {account_manager.get_locked_account_percentage():.2f}%")
+print(f"活躍帳號總影響力: {account_manager.get_total_active_influence():.2f}")
+
+# 檢查失敗條件 (範例)
+LOCKED_ACCOUNT_THRESHOLD = 50.0 # 50% 的帳號被封鎖即失敗
+MIN_ACTIVE_INFLUENCE = 3.0 # 活躍帳號總影響力低於 3.0 即失敗
+
+if account_manager.get_locked_account_percentage() >= LOCKED_ACCOUNT_THRESHOLD:
+    print(f"\n遊戲失敗！超過 {LOCKED_ACCOUNT_THRESHOLD}% 的帳號被封鎖。")
+
+if account_manager.get_total_active_influence() < MIN_ACTIVE_INFLUENCE:
+    print(f"\n遊戲失敗！活躍帳號總影響力低於 {MIN_ACTIVE_INFLUENCE}。")
+
+
+print("\n=== 恢復活躍度 ===")
+if account1: account1.restore_activity(15)
+account_manager.display_all_accounts()
+
+print("\n=== 嘗試創建更多帳號 (資源點數不足) ===")
+game_resource_manager.lose_resource(30) # 模擬其他消耗，讓點數不足
+account5 = account_manager.add_account("新帳號5號")
+game_resource_manager.display_resources()
